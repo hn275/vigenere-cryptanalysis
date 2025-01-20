@@ -32,22 +32,11 @@ struct CryptoSystem {
 
 impl CryptoSystem {
     fn new() -> Self {
-        let mut input_string = String::new();
+        let input_string = String::from(INPUT);
         let mut char_count = [0_usize; ALPHABET_LEN];
-
-        for c in INPUT.chars() {
-            if c == ' ' {
-                continue;
-            }
-            input_string.push(c);
-
+        for c in input_string.chars() {
             let n = c as usize - 'A' as usize;
             char_count[n] += 1;
-        }
-
-        let mut frequency_map = [0_f64; ALPHABET_LEN];
-        for (i, &v) in char_count.iter().enumerate() {
-            frequency_map[i] = v as f64 / input_string.len() as f64;
         }
         Self { input_string }
     }
@@ -91,6 +80,41 @@ fn main() {
     }
 
     println!("key length: {}", key_len);
+    // brute forcing key
+    let mut buf = Vec::with_capacity(key_len);
+    buf.resize(key_len, 0);
+
+    let mut key_ctr = 0;
+    let max_key_ctr = ALPHABET_LEN.pow(key_len as u32);
+    while key_ctr < max_key_ctr {
+        decrypt_ioc(&buf);
+        key_ctr += 1;
+        buf[key_len - 1] += 1;
+        if buf[key_len - 1] < 26 {
+            continue;
+        }
+
+        // when the last key is maxxed out at 25
+        let mut idx = key_len as i32 - 1;
+        while idx >= 0 {
+            if buf[idx as usize] < 25 {
+                buf[idx as usize] += 1;
+                break;
+            }
+            buf[idx as usize] = 0;
+            idx -= 1;
+        }
+    }
+}
+
+fn decrypt_ioc(key: &Vec<usize>) -> f64 {
+    /*
+        println!(
+            "[{} {} {} {} {} {}]",
+            key[0], key[1], key[2], key[3], key[4], key[5]
+        );
+    */
+    0.0
 }
 
 fn calc_ioc(blocks: &Vec<String>) -> f64 {
