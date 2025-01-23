@@ -1,6 +1,4 @@
-import enum
-from re import split
-
+import math
 
 CIPHERTEXT = "COTKXNHWJGXABFZPKGJCWGHMYQGEBJYBGQXJIRDCVLVPPWNKSIPXAMTKUQFHQJDKVBGAETTEOGFTSTJVKHKITSLOZYYBANBZALLPIMTKHCMBCTYHPQZNQUPKJFYPPEXDXFGUQMYWEEDXFMOQRECYQVSHDNBMCAXNRZWNTNTJQKEHEXFCKMYSVFHRZVWUSIJOVCOUSKPBKFPRRQKPFNZCRXNTTWKGSEUBMZXURCQEEPPOKWNSHGEPLFKQLATMWMKQBPKSELDVYVPFAWZSMDBMEFNERSXWRGGMBEXDSFDIQRPIGNZTPTZACHHQDTTASREJDLTFLSJLGKJPJKUXIAGNMIAEUFNKVOGVPBXUOHFBIYQLMRZEJOGHQFSYOUUXBWVCBLFLUDGXJCEXEWQZOHZMLAK";
 ALPHABET_LEN = 26
@@ -13,6 +11,7 @@ def encode(c: int) -> str:
     return chr(c + ord('A'))
 
 def decrypt(ciphertext: int, key: int, block_index: int) -> int:
+    # pt = (ciphertext - key - block_index + ALPHABET_LEN) % ALPHABET_LEN
     pt = ciphertext - (key + block_index)
     return pt % ALPHABET_LEN
 
@@ -44,10 +43,9 @@ def stream_letter_freq(stream: str) -> dict[str, int]:
     letter_freq = {}
 
     for block, char in enumerate(stream):
-        decrypted_char = ord(char) - ord('A')
+        decrypted_char = decode(char)
         decrypted_char = decrypt(decrypted_char, 0, block)
-        decrypted_char += ord('A')
-        decrypted_char = chr(decrypted_char)
+        decrypted_char = encode(decrypted_char)
         letter_freq[decrypted_char] = letter_freq.get(decrypted_char, 0) + 1
 
     return letter_freq
@@ -55,18 +53,39 @@ def stream_letter_freq(stream: str) -> dict[str, int]:
 
 def decrypt_ciphertext(ciphertext: str, keys: list[int]) -> str:
     plaintext = ""
-
+    block_count = math.ceil(len(ciphertext) / len(keys))
     block_size = len(keys)
-    block_index = -1
 
-    for i, char in enumerate(ciphertext):
-        if i % block_size == 0:
-            block_index += 1
+    for block_index in range(block_count):
+        start = block_index * block_size
+        end = start + block_size
+        block = ciphertext[start:end]
 
-        p = decrypt(decode(char), keys[i % block_size], block_size)
-        plaintext += encode(p)
+        for k, char in enumerate(block):
+            c = decode(char)
+            pt_char = decrypt(c, keys[k], block_index)
+            plaintext += encode(pt_char)
 
     return plaintext
+
+def recover_key(ciphertext: str, key_len: int) -> list[int]:
+    streams = make_streams(ciphertext, key_len)
+    key = [0]*key_len
+
+    for i, stream in enumerate(streams):
+        freq = stream_letter_freq(stream)
+        
+        print(i, freq)
+        max_freq = 0
+        stream_key = ''
+        for l, f in freq.items():
+            if f > max_freq:
+                max_freq = f
+                stream_key = l
+
+        key[i] = (ord(stream_key) - ord('E')) % ALPHABET_LEN
+
+    return key
 
 if __name__ == "__main__":
     ioc_min = float('inf')
@@ -88,17 +107,6 @@ if __name__ == "__main__":
 
     print(f"Key length {key_len}")
 
-    # brute force the key for each stream
-    streams = make_streams(CIPHERTEXT, key_len)
-    keys = [0]*key_len
-
-    assert len(streams) == key_len
-
-    for i in range(key_len):
-        letter_freq = stream_letter_freq(streams[i])
-        max_key: str = max(letter_freq, key=letter_freq.get)
-        keys[i] = decode(max_key) % ALPHABET_LEN
-
-    print(f"key {keys} - {"".join([encode(i) for i in keys])}")
-    pt = decrypt_ciphertext(CIPHERTEXT, keys)
-    print(pt)
+    # keys = recover_key(CIPHERTEXT, key_len)
+    keys = [decode(i) for i in "CIPHER"]
+    print(decrypt_ciphertext(CIPHERTEXT, keys))
